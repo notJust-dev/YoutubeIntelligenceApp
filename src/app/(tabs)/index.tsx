@@ -64,7 +64,6 @@ export default function Home() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'YouTube Analyzer' }} />
       <View className="flex-1 bg-white p-2">
         <ScrollView className="flex-1">
           {/* Hero Section */}
