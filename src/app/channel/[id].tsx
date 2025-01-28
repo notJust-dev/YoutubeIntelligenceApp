@@ -4,6 +4,7 @@ import { View, Text, Image, ScrollView, Alert, Pressable } from 'react-native';
 import { Button } from '~/components/Button';
 import { YT_VIDEOS_DATASET_ID } from '~/constants';
 import { supabase } from '~/lib/supabase';
+import { useQueryClient } from '@tanstack/react-query';
 
 const fetchChannel = async (id: string) => {
   const { data, error } = await supabase.from('yt_channels').select('*').eq('id', id).single();
@@ -23,6 +24,22 @@ const fetchVideos = async (channelId: string) => {
 
 export default function Channel() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const queryClient = useQueryClient();
+
+  const toggleTracking = async () => {
+    const { error } = await supabase
+      .from('yt_channels')
+      .update({ is_tracked: !channel.is_tracked })
+      .eq('id', id);
+
+    if (error) {
+      Alert.alert('Error', 'Failed to update tracking status');
+      return;
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['channel', id] });
+    queryClient.invalidateQueries({ queryKey: ['channels'] });
+  };
 
   const {
     data: channel,
@@ -88,6 +105,11 @@ export default function Channel() {
               </Text>
               <Text className="text-gray-600">{channel.videos_count} videos</Text>
             </View>
+            <Button
+              title={channel.is_tracked ? 'Untrack Channel' : 'Track Channel'}
+              onPress={toggleTracking}
+              className="mt-2"
+            />
           </View>
         </View>
 
@@ -115,7 +137,7 @@ export default function Channel() {
         </View>
 
         <Text className="mb-5 mt-6 text-gray-800">Videos</Text>
-        <Button title="Collect Videos" onPress={collectVideos} />
+        {/* <Button title="Collect Videos" onPress={collectVideos} /> */}
         {(videos || []).map((video) => (
           <Link href={`/video/${video.id}`} asChild key={video.id}>
             <Pressable className="my-4 rounded-lg border border-gray-200 p-4">

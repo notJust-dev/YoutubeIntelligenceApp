@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Stack, Link, router } from 'expo-router';
 import { useState } from 'react';
 import { View, Text, TextInput, ScrollView, Pressable, Alert, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Container } from '~/components/Container';
 import { YT_CHANNELS_DATASET_ID } from '~/constants';
@@ -98,10 +99,19 @@ export default function Home() {
                 {(searches || []).map((search) => (
                   <Link key={search.id} href={`/serp/${search.request_id}`} asChild>
                     <Pressable className="flex-row items-center justify-between px-4 py-3">
-                      <Text className="text-gray-900">{search.query}</Text>
-                      <Text className="text-sm text-gray-500">
-                        {new Date(search.created_at).toLocaleDateString()}
-                      </Text>
+                      <View className="flex-1">
+                        <Text className="text-gray-900">{search.query}</Text>
+                        <Text className="text-sm text-gray-500">
+                          {new Date(search.created_at).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      <View className="flex-row items-center gap-4">
+                        <Ionicons
+                          name={search.is_tracked ? 'star' : 'star-outline'}
+                          size={24}
+                          color={search.is_tracked ? '#FFD700' : '#6B7280'}
+                        />
+                      </View>
                     </Pressable>
                   </Link>
                 ))}

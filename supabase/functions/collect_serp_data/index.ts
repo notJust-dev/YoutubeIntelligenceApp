@@ -18,6 +18,7 @@ Deno.serve(async (req) => {
       format: "json",
     }),
   };
+  
   const scrapeResponse = await fetch(
     `https://api.brightdata.com/request`,
     options,

@@ -1,7 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { View, Text, ScrollView, Pressable, Linking } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking, Alert } from 'react-native';
 import { supabase } from '~/lib/supabase';
+import { Button } from '~/components/Button';
 
 const fetchSerpData = async (id: string) => {
   const { data, error } = await supabase
@@ -24,6 +25,22 @@ const fetchSerpData = async (id: string) => {
 
 export default function SerpResults() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const queryClient = useQueryClient();
+
+  const toggleTracking = async () => {
+    const { error } = await supabase
+      .from('serp_search')
+      .update({ is_tracked: !data.is_tracked })
+      .eq('request_id', id);
+
+    if (error) {
+      Alert.alert('Error', 'Failed to update tracking status');
+      return;
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['serp', id] });
+    queryClient.invalidateQueries({ queryKey: ['serp-tracked'] });
+  };
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['serp', id],
@@ -50,6 +67,11 @@ export default function SerpResults() {
           <Text className="text-gray-600">
             Date: {new Date(data.created_at).toLocaleDateString()}
           </Text>
+          <Button
+            title={data.is_tracked ? 'Untrack Search' : 'Track Search'}
+            onPress={toggleTracking}
+            className="mt-2"
+          />
         </View>
 
         {/* Results List */}

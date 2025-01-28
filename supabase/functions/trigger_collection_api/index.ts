@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-// const YT_CHANNELS = "gd_lk538t2k2p1k3oos71"
+
 Deno.serve(async (req) => {
   const { input, dataset_id, extra_params } = await req.json();
 

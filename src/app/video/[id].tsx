@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ScrollView, View, Text, Image, Button } from 'react-native';
 import { supabase } from '~/lib/supabase';
 
@@ -17,6 +17,7 @@ const fetchVideo = async (id: string) => {
 
 export default function Video() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const queryClient = useQueryClient();
 
   const {
     data: video,
@@ -27,11 +28,11 @@ export default function Video() {
     queryFn: () => fetchVideo(id),
   });
 
-  const getSummary = async () => {
-    const { data, error } = await supabase.functions.invoke('ai_video_analysis', {
-      body: { id },
+  const getCommentsAnalysis = async () => {
+    const { data, error } = await supabase.functions.invoke('ai_comments_analysis', {
+      body: { video_id: id },
     });
-    console.log(data);
+    queryClient.invalidateQueries({ queryKey: ['video', id] });
   };
 
   if (isLoading) {
@@ -99,7 +100,25 @@ export default function Video() {
             </View>
           </View>
 
-          <Button title="Generate AI Analysis" onPress={getSummary} className="mt-4" />
+          {video.comments_sentiment ? (
+            <View className="mt-4">
+              <Text className="mb-2 text-lg font-semibold">Comments Analysis</Text>
+              <Text className="font-medium">Sentiment: {video.comments_sentiment}</Text>
+              <Text className="mt-1 text-gray-600">Score: {video.comments_sentiment_score}</Text>
+              <Text className="mt-2">{video.comments_sentiment_explanation}</Text>
+
+              <Text className="mb-2 mt-4 text-lg font-semibold">Comment Topics</Text>
+              <View className="flex-row flex-wrap gap-2">
+                {video.comments_topics?.map((topic: string) => (
+                  <View key={topic} className="rounded-full bg-green-100 px-3 py-1">
+                    <Text className="text-green-800">{topic}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : (
+            <Button title="Generate AI Analysis" onPress={getCommentsAnalysis} className="mt-4" />
+          )}
         </View>
       </View>
     </ScrollView>

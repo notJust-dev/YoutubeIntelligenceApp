@@ -1,8 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
 const YT_CHANNELS_DATASET_ID = "gd_lk538t2k2p1k3oos71";
 const YT_VIDEOS_DATASET_ID = "gd_lk56epmy2i5g7lzu0k";
+const YOUTUBE_COMMENTS = "gd_lk9q0ew71spt1mxywf";
 
 async function saveChannel(
   supabase: SupabaseClient,
@@ -35,6 +36,19 @@ async function saveChannel(
     "id",
     snapshot_id,
   );
+
+  // Ttrigger video scraping
+  const res = await supabase.functions.invoke("trigger_collection_api", {
+    body: {
+      dataset_id: YT_VIDEOS_DATASET_ID,
+      input: [{ url: data[0].url, num_of_posts: 5, order_by: "Latest" }],
+      extra_params: "type=discover_new&discover_by=url",
+    },
+  });
+
+  console.log("Trigger collection api response:", res);
+
+  return true;
 }
 
 async function saveVideos(
@@ -68,11 +82,54 @@ async function saveVideos(
     "id",
     snapshot_id,
   );
+
+  // trigger comment scraping
+  const scrapeComments = data.map((item) => ({
+    url: item.url,
+    load_replies: 1,
+    num_of_comments: 10,
+    sort_by: "Top comments",
+  }));
+  console.log("Scrape comments:", scrapeComments);
+  const res = await supabase.functions.invoke("trigger_collection_api", {
+    body: {
+      dataset_id: YOUTUBE_COMMENTS,
+      input: scrapeComments,
+    },
+  });
+  console.log("Trigger collection api response:", res);
+}
+
+async function saveYoutubeComments(
+  supabase: SupabaseClient,
+  data: any,
+  snapshot_id: string,
+) {
+  const res = await supabase.from("yt_comments").upsert(data.map((item) => ({
+    id: item.comment_id,
+    content: item.comment_text,
+    replies: item.replies_value?.map((r) => r.reply_text) ?? [],
+    video_id: item.video_id,
+  })));
+  console.log("Insert comments response:", res);
+
+  await supabase.from("scrape_jobs").update({
+    status: "ready",
+  }).eq("id", snapshot_id);
 }
 
 Deno.serve(async (req) => {
   const data = await req.json();
   const snapshot_id = req.headers.get("snapshot-id");
+
+  if (!snapshot_id) {
+    return new Response(
+      JSON.stringify({ status: "error", message: "Snapshot ID is required" }),
+      {
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }
 
   console.log("Data: ", data);
   console.log("Snapshot ID: ", snapshot_id);
@@ -108,6 +165,8 @@ Deno.serve(async (req) => {
   } else if (scrapeJob.dataset_id === YT_VIDEOS_DATASET_ID) {
     console.log("Saving video data");
     await saveVideos(supabase, data, snapshot_id);
+  } else if (scrapeJob.dataset_id === YOUTUBE_COMMENTS) {
+    await saveYoutubeComments(supabase, data, snapshot_id);
   }
 
   return new Response(
