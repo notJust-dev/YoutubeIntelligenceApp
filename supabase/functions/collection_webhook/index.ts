@@ -11,7 +11,7 @@ async function saveChannel(
   snapshot_id: string,
 ) {
   // save channel to database
-  const { error } = await supabase.from("yt_channels").upsert(
+  const ytChannelsRes = await supabase.from("yt_channels").upsert(
     data.map((item: any) => ({
       id: item.id,
       updated_at: new Date().toISOString(),
@@ -28,16 +28,17 @@ async function saveChannel(
       location: item.Details?.location,
     })),
   );
+
   // update scrape_jobs table status to "ready"
   await supabase.from("scrape_jobs").update({
     status: "ready",
-    channel_id: data[0].id, // TODO: update this to be the channel id
+    channel_id: data[0].id,
   }).eq(
     "id",
     snapshot_id,
   );
 
-  // Ttrigger video scraping
+  // trigger videos scraping for the channel
   const res = await supabase.functions.invoke("trigger_collection_api", {
     body: {
       dataset_id: YT_VIDEOS_DATASET_ID,
@@ -45,8 +46,6 @@ async function saveChannel(
       extra_params: "type=discover_new&discover_by=url",
     },
   });
-
-  console.log("Trigger collection api response:", res);
 
   return true;
 }
@@ -90,7 +89,7 @@ async function saveVideos(
     num_of_comments: 10,
     sort_by: "Top comments",
   }));
-  console.log("Scrape comments:", scrapeComments);
+
   const res = await supabase.functions.invoke("trigger_collection_api", {
     body: {
       dataset_id: YOUTUBE_COMMENTS,
@@ -174,3 +173,41 @@ Deno.serve(async (req) => {
     { headers: { "Content-Type": "application/json" } },
   );
 });
+
+// // supa client
+// const supabase = createClient(
+//   Deno.env.get("SUPABASE_URL") ?? "",
+//   Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+//   {
+//     global: { headers: { Authorization: req.headers.get("Authorization")! } },
+//   },
+// );
+// Deno.serve(async (req) => {
+//   const data = await req.json();
+//   const snapshot_id = req.headers.get("snapshot-id")!;
+
+//   // fetch scrape job
+//   const { data: scrapeJob } = await supabase.from("scrape_jobs").select("*").eq(
+//     "id",
+//     snapshot_id,
+//   ).single();
+
+//   switch (scrapeJob.dataset_id) {
+//     case YT_CHANNELS_DATASET_ID:
+//       await saveChannel(supabase, data, snapshot_id);
+//       break;
+
+//     case YT_VIDEOS_DATASET_ID:
+//       await saveVideos(supabase, data, snapshot_id);
+//       break;
+
+//     case YOUTUBE_COMMENTS:
+//       await saveYoutubeComments(supabase, data, snapshot_id);
+//       break;
+
+//       // other datasets (ex: instagram, tiktok, linkedin, etc)
+//     default:
+//       console.error("Unknown dataset ID");
+//       break;
+//   }
+// });

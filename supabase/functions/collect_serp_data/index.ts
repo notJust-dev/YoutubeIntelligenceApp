@@ -1,32 +1,38 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-Deno.serve(async (req) => {
-  const { query } = await req.json();
+const BRIGHT_DATA_API_KEY = Deno.env.get("BRIGHT_DATA_API_KEY");
 
+async function googleSearch(query: string) {
   const options = {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${Deno.env.get("BRIGHT_DATA_API_KEY")}`,
+      Authorization: `Bearer ${BRIGHT_DATA_API_KEY}`, // <-- Bright Data API Key taken from .env
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      zone: "serp_api1",
+      zone: "serp_api1", // <-- Replace with your zone name
       url: `https://www.google.com/search?brd_json=1&q=${
         encodeURIComponent(query)
       }`,
       format: "json",
     }),
   };
-  
-  const scrapeResponse = await fetch(
+
+  const response = await fetch(
     `https://api.brightdata.com/request`,
     options,
   );
-  const scrapeData = await scrapeResponse.json();
+
+  const scrapeData = await response.json();
   const googleData = JSON.parse(scrapeData.body);
 
-  console.log(googleData);
+  return googleData;
+}
+
+Deno.serve(async (req) => {
+  const { query } = await req.json();
+
 
   // store job data in database
   const supabase = createClient(
@@ -37,13 +43,15 @@ Deno.serve(async (req) => {
     },
   );
 
+  const googleData = await googleSearch(query);
+
   const { data: serp_search } = await supabase.from("serp_search").insert([{
     request_id: googleData.input.request_id,
     search_engine: "google",
     query: query,
   }]).select().single();
 
-  const { error } = await supabase.from("serp_links").insert(
+  await supabase.from("serp_links").insert(
     googleData.organic.map((result) => ({
       link: result.link,
       title: result.title,
@@ -52,7 +60,6 @@ Deno.serve(async (req) => {
       serp_request_id: googleData.input.request_id,
     })),
   );
-  console.log(error);
 
   return new Response(
     JSON.stringify({ serp_search }),

@@ -1,16 +1,22 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-Deno.serve(async (req) => {
-  const { input, dataset_id, extra_params } = await req.json();
+const backendUrl = Deno.env.get("SUPABASE_URL");
+const brightDataApiKey = Deno.env.get("BRIGHT_DATA_API_KEY");
+
+async function triggerCollectionApi(
+  input: any,
+  dataset_id: string,
+  extra_params: string,
+) {
+  const brightDataTriggerUrl = `https://api.brightdata.com/datasets/v3/trigger`;
+  const webhookUrl = `${backendUrl}/functions/v1/collection_webhook`;
 
   const response = await fetch(
-    `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${dataset_id}&endpoint=${
-      Deno.env.get("SUPABASE_URL")
-    }/functions/v1/collection_webhook&format=json&uncompressed_webhook=true&include_errors=true&${extra_params}`,
+    `${brightDataTriggerUrl}?dataset_id=${dataset_id}&endpoint=${webhookUrl}&format=json&uncompressed_webhook=true&include_errors=true&${extra_params}`,
     {
       headers: {
-        Authorization: `Bearer ${Deno.env.get("BRIGHT_DATA_API_KEY")}`,
+        Authorization: `Bearer ${brightDataApiKey}`,
         "Content-Type": "application/json",
       },
       method: "POST",
@@ -23,6 +29,14 @@ Deno.serve(async (req) => {
   }
 
   const data = await response.json();
+
+  return data;
+}
+
+Deno.serve(async (req) => {
+  const { input, dataset_id, extra_params } = await req.json();
+
+  const data = await triggerCollectionApi(input, dataset_id, extra_params);
 
   // store job data in database
   const supabase = createClient(

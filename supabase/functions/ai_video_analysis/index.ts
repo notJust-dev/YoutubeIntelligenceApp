@@ -29,8 +29,10 @@ Deno.serve(async (req) => {
     messages: [
       {
         role: "developer",
-        content:
-          "You are an AI assistant specialized in analyzing and summarizing video transcripts. Your task is to extract concise and meaningful summaries from the provided transcript. Provide the output in JSON format.",
+        content: `
+          You are an AI assistant specialized in analyzing and summarizing video transcripts. 
+          Your task is to extract concise and meaningful summaries from the provided transcript. 
+          Provide the output in JSON format.`,
       },
       {
         role: "user",

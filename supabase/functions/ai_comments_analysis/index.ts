@@ -30,14 +30,15 @@ Deno.serve(async (req) => {
   });
 
   const chatCompletion = await openai.chat.completions.create({
-    response_format: { type: "json_object" },
     messages: [{
       role: "developer",
-      "content":
-        "You are an AI assistant specialized in analyzing YouTube comments. Your task is to determine the overall sentiment and extract common topics discussed in the comments. Provide the output in JSON format.",
+      content: `
+        You are an AI assistant specialized in analyzing YouTube comments. 
+        Your task is to determine the overall sentiment and extract common topics discussed in the comments. 
+        Provide the output in JSON format.`,
     }, {
       role: "user",
-      "content": `Here are the comments for a YouTube video: 
+      content: `Here are the comments for a YouTube video: 
         ${comments.map((comment) => `- ${comment.content}`).join("\n")}
         Please analyze these comments and provide the following in JSON format:
         {
@@ -51,6 +52,7 @@ Deno.serve(async (req) => {
     // Choose model from here: https://platform.openai.com/docs/models
     model: "gpt-4o-mini",
     stream: false,
+    response_format: { type: "json_object" },
   });
 
   const reply = chatCompletion.choices[0].message.content;
